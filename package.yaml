@@ -5,7 +5,7 @@ maintainer: XT
 synopsis: Bot experiment
 version: '0.0.0'
 license: AGPL
-category: Other
+category: Network
 description: Bot experiment
 ghc-options: -Wall
 github: xtendo-org/knuckleball
