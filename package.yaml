@@ -17,21 +17,29 @@ extra-source-files:
 - stack.yaml
 
 library:
+  source-dirs: library
+  default-extensions:
+  - OverloadedStrings
   dependencies:
   - base
-  source-dirs: library
+  - network
+  - tls
 
 executables:
   knuckleball:
-    dependencies:
-    - base
-    - knuckleball
+    source-dirs: executable
     ghc-options:
+    - -Wall
+    - -O2
     - -rtsopts
     - -threaded
     - -with-rtsopts=-N
     main: Main.hs
-    source-dirs: executable
+    default-extensions:
+    - OverloadedStrings
+    dependencies:
+    - base
+    - knuckleball
 
 tests:
   knuckleball-test-suite:
