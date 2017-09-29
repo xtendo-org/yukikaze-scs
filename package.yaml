@@ -20,10 +20,18 @@ library:
   source-dirs: library
   default-extensions:
   - OverloadedStrings
+  - TemplateHaskell
+  - RecordWildCards
   dependencies:
+  - aeson
   - base
+  - bytestring
   - network
+  - pipes
+  - rawfilepath
+  - text
   - tls
+  - yaml
 
 executables:
   knuckleball:

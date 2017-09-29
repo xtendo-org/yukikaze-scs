@@ -9,3 +9,7 @@ data Conn = Conn
     , connTLSCtx :: Context
     , connTLSInfo :: Information
     }
+
+instance Show Conn where
+    show Conn{..} = fold
+        [ "{", show connHandle, ",", show connTLSInfo, "}" ]
