@@ -4,8 +4,6 @@ import Knuckleball.Import
 
 -- extra modules
 
--- import Pipes
-
 import qualified Data.ByteString as B
 import qualified Data.Text as T
 import qualified Network as Net
@@ -67,23 +65,3 @@ receiver Conn{..} chan = receiver' ""
         (former, latter) = B.breakSubstring "\r\n" buffer
     get :: IO ByteString
     get = TLS.recvData connTLSCtx
-
-
--- recvPipe :: Conn -> Producer ByteString IO ()
--- recvPipe Conn{..} = recvPipe' ""
---   where
---     recvPipe' buffer = do
---         closed <- lift (hIsClosed connHandle)
---         unless closed $ do
---             (former, latter) <- loopTillRN buffer
---             yield former
---             recvPipe' latter
---     loopTillRN buffer = do
---         received <- get
---         let
---             (former, latter) = B.breakSubstring "\r\n" received
---           in if B.null latter
---             then loopTillRN (buffer <> former)
---             else return (former, B.drop 4 latter)
---     get :: Producer ByteString IO ByteString
---     get = lift (TLS.recvData connTLSCtx)
