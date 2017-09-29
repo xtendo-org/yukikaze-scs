@@ -5,6 +5,7 @@ import Knuckleball.Import
 -- extra modules
 
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as LB
 import qualified Data.Text as T
 import qualified Network as Net
 import qualified Network.TLS as TLS
@@ -42,6 +43,14 @@ connect tHost port action = bracket open close $ \ (hdl, ctx) -> do
         hClose hdl
 
 
+send :: Conn -> LB.ByteString -> IO ()
+send Conn{..} rawPayload = do
+    LB.putStr payload
+    TLS.sendData connTLSCtx payload
+  where
+    payload = rawPayload <> "\r\n"
+
+
 recv :: Conn -> IO ByteString
 recv Conn{..} = do
     received <- TLS.recvData connTLSCtx
@@ -60,7 +69,8 @@ receiver Conn{..} chan = receiver' ""
         | B.null latter = do
             received <- get
             loopTillRN (buffer <> received)
-        | otherwise = return (former, B.drop 4 latter)
+        | otherwise = return
+            (B.take (B.length former + 4) buffer, B.drop 4 latter)
       where
         (former, latter) = B.breakSubstring "\r\n" buffer
     get :: IO ByteString
