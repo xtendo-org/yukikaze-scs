@@ -43,19 +43,12 @@ connect tHost port action = bracket open close $ \ (hdl, ctx) -> do
         hClose hdl
 
 
-send :: Conn -> LB.ByteString -> IO ()
-send Conn{..} rawPayload = do
+sender :: Conn -> Chan LB.ByteString -> IO ()
+sender conn@Conn{..} chan = do
+    payload <- (<> "\r\n") <$> readChan chan
     LB.putStr payload
     TLS.sendData connTLSCtx payload
-  where
-    payload = rawPayload <> "\r\n"
-
-
-recv :: Conn -> IO ByteString
-recv Conn{..} = do
-    received <- TLS.recvData connTLSCtx
-    B.putStr received
-    return received
+    sender conn chan
 
 
 receiver :: Conn -> Chan ByteString -> IO ()
@@ -63,6 +56,7 @@ receiver Conn{..} chan = receiver' ""
   where
     receiver' buffer = do
         (former, latter) <- loopTillRN buffer
+        B.putStr former
         writeChan chan former
         receiver' latter
     loopTillRN buffer

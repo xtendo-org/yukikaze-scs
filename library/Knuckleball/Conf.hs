@@ -14,8 +14,12 @@ import qualified Data.ByteString.RawFilePath as B
 -- local modules
 
 data Conf = Conf
-    { cfgHost :: Text
-    , cfgPort :: Word16
+    { cHost :: Text
+    , cPort :: Word16
+    , cHostname :: Text
+    , cUsername :: Text
+    , cRealname :: Text
+    , cNickname :: Text
     } deriving Show
 
 let
@@ -25,7 +29,7 @@ let
         | isUpper x = '_' : toLower x : snake xs
         | otherwise = x : snake xs
     headless :: String -> String
-    headless s = case drop 3 s of
+    headless s = case drop 1 s of
         [] -> []
         x : xs -> toLower x : xs
     m = snake . headless
