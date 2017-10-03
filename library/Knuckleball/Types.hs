@@ -5,7 +5,6 @@ import Knuckleball.Import
 -- external modules
 
 import Network.TLS (Context, Information)
-import qualified Data.ByteString.Lazy as LB
 
 
 data Conn = Conn
@@ -20,6 +19,6 @@ instance Show Conn where
 
 
 data Ctx = Ctx
-    { cUp :: Chan LB.ByteString
+    { cUp :: Chan ByteString
     , cDn :: Chan ByteString
     }

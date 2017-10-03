@@ -22,22 +22,32 @@ main = do
     home <- fromMaybe errNoHome <$> getHomeDirectory
     Conf{..} <- fmap (either error id) $
         loadConf $ home <> "/.config/knuckleball/conf.yaml"
-    upstream <- newChan :: IO (Chan LB.ByteString)
-    downstream <- newChan :: IO (Chan ByteString)
+    upChan <- newChan :: IO (Chan ByteString)
+    downChan <- newChan :: IO (Chan ByteString)
     connect cHost cPort $ \ conn -> do
-        _ <- forkIO $ receiver conn downstream
-        _ <- forkIO $ sender conn upstream
+        _ <- forkIO $ receiverNet conn downChan
+        _ <- forkIO $ senderNet conn upChan
 
-        _ <- readChan downstream
-        writeChan upstream $ B.toLazyByteString $ fold
+        _ <- readChan downChan
+        writeChan upChan $ LB.toStrict $ B.toLazyByteString $ fold
             [ "USER ", b cUsername
             , " ", b cHostname
             , " ", b cHost
             , " :", b cRealname
             , "\r\nNICK :", b cNickname
             ]
+        process <- startProcess $ proc "knucleball-core" []
+            `setStdin` CreatePipe
+            `setStdout` CreatePipe
 
-        pong (Ctx upstream downstream)
+        hSetBuffering (processStdin process) LineBuffering
+        hSetBuffering (processStdout process) LineBuffering
+
+        _ <- forkIO $ downstream downChan (processStdin process)
+        _ <- forkIO $ upstream (processStdout process) upChan
+
+        pong (Ctx upChan downChan)
+
   where
     b = B.byteString . T.encodeUtf8
 
@@ -47,5 +57,23 @@ pong ctx@Ctx{..} = do
     msg <- readChan cDn
     when ("PING :" `B.isPrefixOf` msg) $
         writeChan cUp $
-            "PONG :" <> LB.fromStrict (B.drop (B.length "PING :") msg)
+            "PONG :" <> B.drop (B.length "PING :") msg
     pong ctx
+
+
+downstream :: Chan ByteString -> Handle -> IO a
+downstream chan hdl = do
+    msg <- readChan chan
+    B.hPut hdl ("NET " <> msg)
+    downstream chan hdl
+
+
+upstream :: Handle -> Chan ByteString -> IO a
+upstream hdl chan = do
+    msg <- B.hGet hdl 4096
+    if prefix `B.isPrefixOf` msg
+    then writeChan chan (B.drop (B.length prefix) msg)
+    else B.putStr ("Core says: " <> msg)
+    upstream hdl chan
+  where
+    prefix = "NET "
