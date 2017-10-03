@@ -36,7 +36,7 @@ main = do
             , " :", b cRealname
             , "\r\nNICK :", b cNickname
             ]
-        process <- startProcess $ proc "knucleball-core" []
+        process <- startProcess $ proc "knuckleball-core" []
             `setStdin` CreatePipe
             `setStdout` CreatePipe
 
@@ -70,10 +70,10 @@ downstream chan hdl = do
 
 upstream :: Handle -> Chan ByteString -> IO a
 upstream hdl chan = do
-    msg <- B.hGet hdl 4096
+    msg <- B.hGetSome hdl 4096
     if prefix `B.isPrefixOf` msg
     then writeChan chan (B.drop (B.length prefix) msg)
     else B.putStr ("Core says: " <> msg)
     upstream hdl chan
   where
-    prefix = "NET "
+    prefix = "UP "

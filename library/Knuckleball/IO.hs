@@ -39,4 +39,4 @@ senderHdl hdl = sender (B.hPut hdl) "\n"
 
 
 receiverHdl :: Handle -> Chan ByteString -> IO a
-receiverHdl hdl = receiver (B.hGet hdl 4096) "\n"
+receiverHdl hdl = receiver (B.hGetSome hdl 4096) "\n"
