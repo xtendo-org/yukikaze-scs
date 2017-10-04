@@ -48,7 +48,7 @@ senderNet :: Conn -> Chan ByteString -> IO ()
 senderNet Conn{..} = sender put "\r\n"
   where
     put b = do
-        B.putStr (b <> "\n")
+        B.putStr b
         TLS.sendData connTLSCtx (LB.fromStrict b)
 
 
@@ -57,5 +57,5 @@ receiverNet Conn{..} = receiver get "\r\n"
   where
     get = do
         msg <- TLS.recvData connTLSCtx
-        B.putStr (msg <> "\n")
+        B.putStr msg
         return msg

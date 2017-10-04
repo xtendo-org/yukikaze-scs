@@ -4,9 +4,10 @@ import Knuckleball.Import
 
 -- external modules
 
-import qualified Data.ByteString.RawFilePath as B
 import qualified Data.ByteString.Builder as B
+import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy as LB
+import qualified Data.ByteString.RawFilePath as B (withFile)
 import qualified Data.Text.Encoding as T
 
 -- local modules
@@ -52,9 +53,9 @@ main = do
 upstream :: Handle -> Chan ByteString -> IO ()
 upstream hdl chan = hIsClosed hdl >>= \ closed -> unless closed $ do
     msg <- B.hGetSome hdl 4096
-    if prefix `B.isPrefixOf` msg
-    then writeChan chan (B.drop (B.length prefix) msg)
-    else B.putStr ("Core says: " <> msg)
+    unless (B.null msg) $ if prefix `B.isPrefixOf` msg
+        then writeChan chan (B.drop (B.length prefix) msg)
+        else B.putStr ("Core says: " <> msg)
     upstream hdl chan
   where
     prefix = "NET "
@@ -87,22 +88,21 @@ mainLoop loopSet@LoopSet{..} upChan downChan = do
     mainLoop' msg
 
   where
-    mainLoop' msg = case B.takeWhile (/= (fromIntegral $ ord ' ')) msg of
-        "PING" -> do
+    mainLoop' msg
+        | "PING " `B.isPrefixOf` msg = do
             writeChan upChan $ "PONG :" <> B.drop (B.length "PING :") msg
             continue
-        "PRIVMSG "-> do
-            B.putStr "PRIVMSG received. Handling from Face...\n"
-            if loopRestartKey `B.isInfixOf` msg
+        | secondWord == "PRIVMSG" = if loopRestartKey `B.isSuffixOf` msg
             then do
-                B.putStr "Restarting ...\n"
                 killThread loopUpThread
                 _ <- stopProcess loopProcess
                 nextloopSet <- newLoopSet upChan
                 mainLoop nextloopSet upChan downChan
             else continue
-        _ -> continue
+        | otherwise = continue
       where
         continue = do
             B.hPut (processStdin loopProcess) ("NET " <> msg)
             mainLoop loopSet upChan downChan
+        secondWord = B.takeWhile (/= ' ') $
+            B.drop 1 $ B.dropWhile (/= ' ') msg
