@@ -4,7 +4,7 @@ import Knuckleball.Import
 
 -- external modules
 
-import qualified Data.ByteString as B
+import qualified Data.ByteString.RawFilePath as B
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.Text.Encoding as T
@@ -14,7 +14,13 @@ import qualified Data.Text.Encoding as T
 import Knuckleball.Conf
 import Knuckleball.Error
 import Knuckleball.Network
-import Knuckleball.Types
+
+
+data LoopSet = LoopSet
+    { loopProcess :: Process CreatePipe CreatePipe Inherit
+    , loopUpThread :: ThreadId
+    , loopRestartKey :: ByteString
+    }
 
 
 main :: IO ()
@@ -36,44 +42,67 @@ main = do
             , " :", b cRealname
             , "\r\nNICK :", b cNickname
             ]
-        process <- startProcess $ proc "knuckleball-core" []
-            `setStdin` CreatePipe
-            `setStdout` CreatePipe
 
-        hSetBuffering (processStdin process) LineBuffering
-        hSetBuffering (processStdout process) LineBuffering
-
-        _ <- forkIO $ downstream downChan (processStdin process)
-        _ <- forkIO $ upstream (processStdout process) upChan
-
-        pong (Ctx upChan downChan)
-
+        loopSet <- newLoopSet upChan
+        mainLoop loopSet upChan downChan
   where
     b = B.byteString . T.encodeUtf8
 
 
-pong :: Ctx -> IO ()
-pong ctx@Ctx{..} = do
-    msg <- readChan cDn
-    when ("PING :" `B.isPrefixOf` msg) $
-        writeChan cUp $
-            "PONG :" <> B.drop (B.length "PING :") msg
-    pong ctx
-
-
-downstream :: Chan ByteString -> Handle -> IO a
-downstream chan hdl = do
-    msg <- readChan chan
-    B.hPut hdl ("NET " <> msg)
-    downstream chan hdl
-
-
-upstream :: Handle -> Chan ByteString -> IO a
-upstream hdl chan = do
+upstream :: Handle -> Chan ByteString -> IO ()
+upstream hdl chan = hIsClosed hdl >>= \ closed -> unless closed $ do
     msg <- B.hGetSome hdl 4096
     if prefix `B.isPrefixOf` msg
     then writeChan chan (B.drop (B.length prefix) msg)
     else B.putStr ("Core says: " <> msg)
     upstream hdl chan
   where
-    prefix = "UP "
+    prefix = "NET "
+
+
+newLoopSet :: Chan ByteString -> IO LoopSet
+newLoopSet upChan = do
+    process <- startProcess $ proc "knuckleball-core" []
+        `setStdin` CreatePipe
+        `setStdout` CreatePipe
+    hSetBuffering (processStdin process) NoBuffering
+    hSetBuffering (processStdout process) NoBuffering
+
+    upThread <- forkIO $ upstream (processStdout process) upChan
+    restartKey <- B.withFile "/dev/random" ReadMode $ \ h ->
+        LB.toStrict . B.toLazyByteString . B.byteStringHex <$> B.hGetSome h 32
+
+    print restartKey
+
+    return LoopSet
+        { loopProcess = process
+        , loopUpThread = upThread
+        , loopRestartKey = restartKey
+        }
+
+
+mainLoop :: LoopSet -> Chan ByteString -> Chan ByteString -> IO a
+mainLoop loopSet@LoopSet{..} upChan downChan = do
+    msg <- readChan downChan
+    mainLoop' msg
+
+  where
+    mainLoop' msg = case B.takeWhile (/= (fromIntegral $ ord ' ')) msg of
+        "PING" -> do
+            writeChan upChan $ "PONG :" <> B.drop (B.length "PING :") msg
+            continue
+        "PRIVMSG "-> do
+            B.putStr "PRIVMSG received. Handling from Face...\n"
+            if loopRestartKey `B.isInfixOf` msg
+            then do
+                B.putStr "Restarting ...\n"
+                killThread loopUpThread
+                _ <- stopProcess loopProcess
+                nextloopSet <- newLoopSet upChan
+                mainLoop nextloopSet upChan downChan
+            else continue
+        _ -> continue
+      where
+        continue = do
+            B.hPut (processStdin loopProcess) ("NET " <> msg)
+            mainLoop loopSet upChan downChan
