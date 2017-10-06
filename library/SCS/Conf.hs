@@ -1,9 +1,9 @@
-module Knuckleball.Conf
+module SCS.Conf
     ( Conf(..)
     , loadConf
     ) where
 
-import Knuckleball.Import
+import SCS.Import
 
 -- extra modules
 

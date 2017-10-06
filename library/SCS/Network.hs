@@ -1,6 +1,6 @@
-module Knuckleball.Network where
+module SCS.Network where
 
-import Knuckleball.Import
+import SCS.Import
 
 -- extra modules
 
@@ -13,9 +13,9 @@ import qualified Network.TLS.Extra as TLS
 
 -- local modules
 
-import Knuckleball.Error
-import Knuckleball.IO
-import Knuckleball.Types
+import SCS.Error
+import SCS.IO
+import SCS.Types
 
 
 connect :: Text -> Word16 -> (Conn -> IO a) -> IO a

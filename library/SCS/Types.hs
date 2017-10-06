@@ -1,6 +1,6 @@
-module Knuckleball.Types where
+module SCS.Types where
 
-import Knuckleball.Import
+import SCS.Import
 
 -- external modules
 

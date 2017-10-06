@@ -1,6 +1,6 @@
-module Knuckleball (main) where
+module SCS (main) where
 
-import Knuckleball.Import
+import SCS.Import
 
 -- external modules
 
@@ -12,18 +12,18 @@ import qualified Data.Text.Encoding as T
 
 -- local modules
 
-import Knuckleball.Conf
-import Knuckleball.Core
-import Knuckleball.Error
-import Knuckleball.Network
-import Knuckleball.Types
+import SCS.Conf
+import SCS.Core
+import SCS.Error
+import SCS.Network
+import SCS.Types
 
 
 main :: IO ()
 main = do
     home <- fromMaybe errNoHome <$> getHomeDirectory
     Conf{..} <- fmap (either error id) $
-        loadConf $ home <> "/.config/knuckleball/conf.yaml"
+        loadConf $ home <> "/.config/yukikaze/conf.yaml"
     upChan <- newChan :: IO (Chan ByteString)
     eventChan <- newChan :: IO (Chan Event)
     connect cHost cPort $ \ conn -> do
@@ -40,7 +40,7 @@ main = do
             ]
 
         core <- newCore eventChan
-        B.withFile (home <> "/.config/knuckleball/restart_key") WriteMode $
+        B.withFile (home <> "/.config/yukikaze/restart_key") WriteMode $
             \ h -> B.hPut h (coreRestartKey core)
         mainLoop home core upChan eventChan
   where
@@ -65,7 +65,7 @@ mainLoop home core upChan eventChan = do
         killThread (coreRecvThread core)
         _ <- stopProcess (coreProcess core)
         nextCore <- newCore eventChan
-        B.withFile (home <> "/.config/knuckleball/restart_key") WriteMode $
+        B.withFile (home <> "/.config/yukikaze/restart_key") WriteMode $
             \ h -> B.hPut h (coreRestartKey nextCore)
         mainLoop home nextCore upChan eventChan
     netMsg msg

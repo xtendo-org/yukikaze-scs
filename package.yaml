@@ -1,6 +1,6 @@
 # <https://github.com/sol/hpack>
 
-name: knuckleball
+name: yukikaze-scs
 maintainer: XT
 synopsis: Bot experiment
 version: '0.0.0'
@@ -8,7 +8,7 @@ license: AGPL
 category: Network
 description: Bot experiment
 ghc-options: -Wall
-github: xtendo-org/knuckleball
+github: xtendo-org/yukikaze-scs
 extra-source-files:
 - CHANGELOG.md
 - LICENSE.md
@@ -34,7 +34,7 @@ library:
   - yaml
 
 executables:
-  knuckleball:
+  yukikaze-scs:
     source-dirs: executable
     ghc-options:
     - -Wall
@@ -47,13 +47,13 @@ executables:
     - OverloadedStrings
     dependencies:
     - base
-    - knuckleball
+    - yukikaze-scs
 
 tests:
-  knuckleball-test-suite:
+  yukikaze-scs-test-suite:
     dependencies:
     - base
-    - knuckleball
+    - yukikaze-scs
     - tasty
     - tasty-hspec
     ghc-options:
@@ -64,10 +64,10 @@ tests:
     source-dirs: test-suite
 
 benchmarks:
-  knuckleball-benchmarks:
+  yukikaze-scs-benchmarks:
     dependencies:
     - base
-    - knuckleball
+    - yukikaze-scs
     - criterion
     ghc-options:
     - -rtsopts

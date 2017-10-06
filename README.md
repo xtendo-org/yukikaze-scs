@@ -1,3 +1,3 @@
-# knuckleball
+# yukikaze-scs
 
-Bot experiment. Work in progress.
+This is the interface component of YUKIKAZE the IRC bot.

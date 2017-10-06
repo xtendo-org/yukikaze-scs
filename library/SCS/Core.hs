@@ -1,6 +1,6 @@
-module Knuckleball.Core where
+module SCS.Core where
 
-import Knuckleball.Import
+import SCS.Import
 
 -- external modules
 
@@ -11,8 +11,8 @@ import qualified Data.ByteString.RawFilePath as B (withFile)
 
 -- local modules
 
-import Knuckleball.IO
-import Knuckleball.Types
+import SCS.IO
+import SCS.Types
 
 
 data Core = Core
@@ -24,7 +24,7 @@ data Core = Core
 
 newCore :: Chan Event -> IO Core
 newCore eventChan = do
-    process <- startProcess $ proc "knuckleball-core" []
+    process <- startProcess $ proc "yukikaze" []
         `setStdin` CreatePipe
         `setStdout` CreatePipe
     hSetBuffering (processStdin process) NoBuffering

@@ -1,6 +1,6 @@
-module Knuckleball.IO where
+module SCS.IO where
 
-import Knuckleball.Import
+import SCS.Import
 
 -- external modules
 

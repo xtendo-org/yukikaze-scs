@@ -1,4 +1,4 @@
-module Knuckleball.Import
+module SCS.Import
     ( module Module
     , ByteString
     , Text
