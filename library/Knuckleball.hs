@@ -13,15 +13,10 @@ import qualified Data.Text.Encoding as T
 -- local modules
 
 import Knuckleball.Conf
+import Knuckleball.Core
 import Knuckleball.Error
 import Knuckleball.Network
-
-
-data LoopSet = LoopSet
-    { loopProcess :: Process CreatePipe CreatePipe Inherit
-    , loopUpThread :: ThreadId
-    , loopRestartKey :: ByteString
-    }
+import Knuckleball.Types
 
 
 main :: IO ()
@@ -30,12 +25,12 @@ main = do
     Conf{..} <- fmap (either error id) $
         loadConf $ home <> "/.config/knuckleball/conf.yaml"
     upChan <- newChan :: IO (Chan ByteString)
-    downChan <- newChan :: IO (Chan ByteString)
+    eventChan <- newChan :: IO (Chan Event)
     connect cHost cPort $ \ conn -> do
-        _ <- forkIO $ receiverNet conn downChan
+        _ <- forkIO $ receiverNet conn (writeChan eventChan . NetEvent)
         _ <- forkIO $ senderNet conn upChan
 
-        _ <- readChan downChan
+        _ <- readChan eventChan
         writeChan upChan $ LB.toStrict $ B.toLazyByteString $ fold
             [ "USER ", b cUsername
             , " ", b cHostname
@@ -44,65 +39,47 @@ main = do
             , "\r\nNICK :", b cNickname
             ]
 
-        loopSet <- newLoopSet upChan
-        mainLoop loopSet upChan downChan
+        core <- newCore eventChan
+        B.withFile (home <> "/.config/knuckleball/restart_key") WriteMode $
+            \ h -> B.hPut h (coreRestartKey core)
+        mainLoop home core upChan eventChan
   where
     b = B.byteString . T.encodeUtf8
 
 
-upstream :: Handle -> Chan ByteString -> IO ()
-upstream hdl chan = hIsClosed hdl >>= \ closed -> unless closed $ do
-    msg <- B.hGetSome hdl 4096
-    unless (B.null msg) $ if prefix `B.isPrefixOf` msg
-        then writeChan chan (B.drop (B.length prefix) msg)
-        else B.putStr ("Core says: " <> msg)
-    upstream hdl chan
+mainLoop :: ByteString -> Core -> Chan ByteString -> Chan Event -> IO a
+mainLoop home core upChan eventChan = do
+    event <- readChan eventChan
+    case event of
+        NetEvent msg -> netMsg msg
+        CoreEvent msg -> if B.null msg
+            then exitSuccess
+            else do
+                if prefix `B.isPrefixOf` msg
+                then writeChan upChan (B.drop (B.length prefix) msg)
+                else B.putStr ("Core says: " <> msg)
+                mainLoop home core upChan eventChan
   where
     prefix = "NET "
-
-
-newLoopSet :: Chan ByteString -> IO LoopSet
-newLoopSet upChan = do
-    process <- startProcess $ proc "knuckleball-core" []
-        `setStdin` CreatePipe
-        `setStdout` CreatePipe
-    hSetBuffering (processStdin process) NoBuffering
-    hSetBuffering (processStdout process) NoBuffering
-
-    upThread <- forkIO $ upstream (processStdout process) upChan
-    restartKey <- B.withFile "/dev/random" ReadMode $ \ h ->
-        LB.toStrict . B.toLazyByteString . B.byteStringHex <$> B.hGetSome h 32
-
-    print restartKey
-
-    return LoopSet
-        { loopProcess = process
-        , loopUpThread = upThread
-        , loopRestartKey = restartKey
-        }
-
-
-mainLoop :: LoopSet -> Chan ByteString -> Chan ByteString -> IO a
-mainLoop loopSet@LoopSet{..} upChan downChan = do
-    msg <- readChan downChan
-    mainLoop' msg
-
-  where
-    mainLoop' msg
+    restartCore = do
+        killThread (coreRecvThread core)
+        _ <- stopProcess (coreProcess core)
+        nextCore <- newCore eventChan
+        B.withFile (home <> "/.config/knuckleball/restart_key") WriteMode $
+            \ h -> B.hPut h (coreRestartKey nextCore)
+        mainLoop home nextCore upChan eventChan
+    netMsg msg
         | "PING " `B.isPrefixOf` msg = do
             writeChan upChan $ "PONG :" <> B.drop (B.length "PING :") msg
             continue
-        | secondWord == "PRIVMSG" = if loopRestartKey `B.isSuffixOf` msg
-            then do
-                killThread loopUpThread
-                _ <- stopProcess loopProcess
-                nextloopSet <- newLoopSet upChan
-                mainLoop nextloopSet upChan downChan
-            else continue
+        | secondWord == "PRIVMSG"
+        && coreRestartKey core `B.isInfixOf` msg = do
+            B.putStr "Restarting ...\n"
+            restartCore
         | otherwise = continue
       where
         continue = do
-            B.hPut (processStdin loopProcess) ("NET " <> msg)
-            mainLoop loopSet upChan downChan
+            B.hPut (processStdin $ coreProcess core) ("NET " <> msg <> "\n")
+            mainLoop home core upChan eventChan
         secondWord = B.takeWhile (/= ' ') $
             B.drop 1 $ B.dropWhile (/= ' ') msg

@@ -44,7 +44,7 @@ connect tHost port action = bracket open close $ \ (hdl, ctx) -> do
         hClose hdl
 
 
-senderNet :: Conn -> Chan ByteString -> IO ()
+senderNet :: Conn -> Chan ByteString -> IO a
 senderNet Conn{..} = sender put "\r\n"
   where
     put b = do
@@ -52,8 +52,8 @@ senderNet Conn{..} = sender put "\r\n"
         TLS.sendData connTLSCtx (LB.fromStrict b)
 
 
-receiverNet :: Conn -> Chan ByteString -> IO ()
-receiverNet Conn{..} = receiver get "\r\n"
+receiverNet :: Conn -> (ByteString -> IO ()) -> IO a
+receiverNet Conn{..} = receiver "\r\n" get
   where
     get = do
         msg <- TLS.recvData connTLSCtx

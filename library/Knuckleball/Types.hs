@@ -22,3 +22,8 @@ data Ctx = Ctx
     { cUp :: Chan ByteString
     , cDn :: Chan ByteString
     }
+
+
+data Event
+    = NetEvent ByteString
+    | CoreEvent ByteString

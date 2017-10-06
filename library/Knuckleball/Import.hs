@@ -15,6 +15,7 @@ import Data.Foldable as Module
 import Data.Maybe as Module
 import Data.Monoid as Module
 import Data.Word as Module
+import System.Exit as Module
 import System.IO as Module
 
 -- extra
